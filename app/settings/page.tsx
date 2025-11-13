@@ -1,3 +1,3 @@
 export default function SettingPage() {
-  // ...你的內容...
+  return <div>編輯頁面</div>
 }
