@@ -1,0 +1,3 @@
+export default function SettingPage() {
+  // ...你的內容...
+}
