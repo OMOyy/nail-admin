@@ -28,10 +28,12 @@ export default function EditOrderPage() {
     fetchOrder()
   }, [id])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setForm((prev) => (prev ? { ...prev, [name]: value } : prev))
-  }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+  const { name, value } = target
+  setForm((prev) => (prev ? { ...prev, [name]: value } : prev))
+}
+
 
   // ✅ 多檔上傳
   const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -146,25 +148,25 @@ export default function EditOrderPage() {
 
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
             {previews.map((src, idx) => (
-                                <div key={idx} className="relative group">
-                                    <img
-                                        src={src}
-                                        alt={`preview-${idx}`}
-                                        onClick={() => setActiveImage(src)}
-                                        className="w-full h-24 object-cover rounded-lg border border-brand-200 shadow-sm cursor-pointer hover:scale-[1.03] transition"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleRemoveImage(idx)
-                                        }}
-                                        className="absolute top-1 right-1 bg-black/60 text-white text-xs rounded-full px-2 py-0.5  group-hover:opacity-100 transition"
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                            ))}
+              <div key={idx} className="relative group">
+                <img
+                  src={src}
+                  alt={`preview-${idx}`}
+                  onClick={() => setActiveImage(src)}
+                  className="w-full h-24 object-cover rounded-lg border border-brand-200 shadow-sm cursor-pointer hover:scale-[1.03] transition"
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleRemoveImage(idx)
+                  }}
+                  className="absolute top-1 right-1 bg-black/60 text-white text-xs rounded-full px-2 py-0.5  group-hover:opacity-100 transition"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -190,6 +192,19 @@ export default function EditOrderPage() {
               className="mt-1 w-full border border-brand-200 rounded-lg p-2"
             />
           </div>
+        </div>
+
+        {/* 備註欄位 */}
+        <div>
+          <label className="block text-sm font-medium text-brand-700">備註</label>
+          <textarea
+            name="note"
+            value={form.note || ""}
+            onChange={handleChange}
+            rows={3}
+            placeholder="例如：貼鑽、跳色、法式設計..."
+            className="mt-1 w-full border border-brand-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-brand-300 focus:outline-none"
+          />
         </div>
 
         {/* 狀態 */}
@@ -231,35 +246,35 @@ export default function EditOrderPage() {
               type="submit"
               className="px-4 py-2 rounded-lg bg-brand-400 text-white hover:bg-brand-500"
             >
-               儲存修改
+              儲存修改
             </button>
           </div>
         </div>
       </form>
-         {/* ✅ 放大圖片 Modal */}
-            {activeImage && (
-                <div
-                    onClick={() => setActiveImage(null)}
-                    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center"
-                >
-                    <div
-                        className="relative max-w-3xl w-[90%] rounded-lg overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <img
-                            src={activeImage}
-                            alt="preview-large"
-                            className="w-full h-auto max-h-[80vh] object-contain rounded-lg shadow-2xl animate-in fade-in zoom-in"
-                        />
-                        <button
-                            onClick={() => setActiveImage(null)}
-                            className="absolute top-2 right-2 bg-black/70 text-white rounded-full px-3 py-1 text-sm hover:bg-black/90 transition"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                </div>
-            )}
+      {/* ✅ 放大圖片 Modal */}
+      {activeImage && (
+        <div
+          onClick={() => setActiveImage(null)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center"
+        >
+          <div
+            className="relative max-w-3xl w-[90%] rounded-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={activeImage}
+              alt="preview-large"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg shadow-2xl animate-in fade-in zoom-in"
+            />
+            <button
+              onClick={() => setActiveImage(null)}
+              className="absolute top-2 right-2 bg-black/70 text-white rounded-full px-3 py-1 text-sm hover:bg-black/90 transition"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
