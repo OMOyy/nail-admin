@@ -17,5 +17,21 @@ export const SHAPES = [
   "橢圓",
   "杏仁",
 ] as const
+export const SIZE_LABELS: Record<string, string> = {
+  "XS": "特小",
+  "S": "小",
+  "M": "中",
+  "L": "大",
+  "XL": "特大",
+  "客製": "客製尺寸",
+}
+
+export const SHAPE_LABELS: Record<string, string> = {
+  "短圓": "短圓形",
+  "方形": "方形",
+  "杏仁": "杏仁形",
+  "棺型": "棺型",
+  "客製": "客製形狀",
+}
 
 export const SIZES = ["XS", "S", "M", "L", "客製"] as const
