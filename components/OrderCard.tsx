@@ -1,6 +1,8 @@
 "use client"
+import { useState } from "react"
 import Link from "next/link"
 import type { Order } from "@/types/order"
+import { ChevronDown, ChevronUp, Pencil } from "lucide-react"
 
 const twCurrency = (n: number) =>
   new Intl.NumberFormat("zh-TW", {
@@ -10,17 +12,29 @@ const twCurrency = (n: number) =>
   }).format(n)
 
 export default function OrderCard({ o }: { o: Order }) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <Link
-      href={`/orders/${o.id}/edit`}
-      className="block bg-white border border-brand-200 rounded-2xl overflow-hidden hover:shadow-soft hover:border-brand-400 transition"
-    >
-    <img
+    <div className="bg-white border border-brand-200 rounded-2xl overflow-hidden hover:shadow-soft transition relative">
+
+      {/* 編輯按鈕 */}
+      <Link
+        href={`/orders/${o.id}/edit`}
+        className="absolute top-2 right-2 bg-white/80 backdrop-blur px-2 py-1 rounded-lg border border-brand-300 text-brand-700 text-xs hover:bg-brand-100 flex items-center gap-1"
+      >
+        <Pencil size={14} />
+        編輯
+      </Link>
+
+      {/* 封面圖 */}
+      <img
         src={o.style_imgs?.[0] || "/placeholder.png"}
         alt="款式"
         className="w-full h-40 object-cover"
       />
+
       <div className="p-4 space-y-2">
+        {/* 客戶 + 日期 */}
         <div className="flex justify-between items-center">
           <h3 className="font-bold text-lg text-brand-900">{o.customer}</h3>
           <span className="text-sm text-brand-600">
@@ -28,13 +42,8 @@ export default function OrderCard({ o }: { o: Order }) {
           </span>
         </div>
 
-        <p className="text-brand-800/90 text-sm">{o.note || "—"}</p>
-
-        <div className="text-sm text-brand-700">
-          數量：<span className="font-semibold text-brand-900">{o.quantity}</span>
-        </div>
-
-        <div className="flex justify-between items-center pt-2">
+        {/* 狀態 + 價格 */}
+        <div className="flex justify-between items-center pt-1">
           <span
             className={[
               "px-2.5 py-1 rounded-full text-xs border font-medium",
@@ -49,9 +58,53 @@ export default function OrderCard({ o }: { o: Order }) {
           >
             {o.status}
           </span>
-          <span className="text-brand-700 font-bold">{twCurrency(o.price)}</span>
+
+          <span className="text-brand-700 font-bold">
+            {twCurrency(o.price)}
+          </span>
         </div>
+
+        {/* 下拉開闔按鈕 */}
+        <button
+          onClick={() => setOpen(!open)}
+          className="w-full flex justify-center items-center gap-1 text-brand-700 text-sm mt-2 hover:text-brand-900"
+        >
+          {open ? (
+            <>
+              收合詳細 <ChevronUp size={16} />
+            </>
+          ) : (
+            <>
+              顯示詳細 <ChevronDown size={16} />
+            </>
+          )}
+        </button>
+
+        {/* 展開的詳細內容 */}
+        {open && (
+          <div className="mt-2 space-y-1 text-sm text-brand-700 animate-in fade-in">
+            <div>
+              尺寸：
+              <span className="font-semibold text-brand-900">{o.size}</span>
+              {o.size === "客製" && o.custom_size_note && (
+                <span className="ml-1 text-xs text-brand-600">（{o.custom_size_note}）</span>
+              )}
+            </div>
+
+            <div>
+              形狀：<span className="font-semibold text-brand-900">{o.shape}</span>
+            </div>
+
+            <div>
+              數量：<span className="font-semibold text-brand-900">{o.quantity}</span>
+            </div>
+
+            <div>
+              備註：<span className="font-semibold text-brand-900">{o.note || "—"}</span>
+            </div>
+          </div>
+        )}
       </div>
-    </Link>
+    </div>
   )
 }

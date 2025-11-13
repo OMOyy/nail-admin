@@ -10,7 +10,7 @@ type FormData = {
     styleImgs: string[]
     quantity: number
     note: string
-    customSizeNote: string
+    custom_size_note: string
     status: string
     price: number
 }
@@ -25,7 +25,7 @@ export default function NewOrderPage() {
         styleImgs: [],
         quantity: 1,
         note: "",
-        customSizeNote: "",
+        custom_size_note: "",
         status: "未付定金",
         price: 0,
     })
@@ -68,7 +68,7 @@ export default function NewOrderPage() {
             {
                 customer: form.customer,
                 size: form.size,
-                custom_size_note: form.customSizeNote,
+                custom_size_note: form.custom_size_note,
                 shape: form.shape,
                 style_imgs: previews,
                 quantity: form.quantity,
@@ -127,7 +127,7 @@ export default function NewOrderPage() {
                                 type="text"
                                 name="customSizeNote"
                                 placeholder="請輸入客製尺寸說明"
-                                value={form.customSizeNote}
+                                value={form.custom_size_note}
                                 onChange={handleChange}
                                 className="mt-2 w-full border border-brand-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-brand-300 focus:outline-none"
                             />

@@ -20,7 +20,10 @@ export default function EditOrderPage() {
       if (error) {
         console.error(error)
       } else if (data) {
-        setForm(data)
+        setForm({
+          ...data,
+          custom_size_note: data.custom_size_note ?? ""
+        })
         setPreviews(data.style_imgs || [])
       }
       setLoading(false)
@@ -29,10 +32,10 @@ export default function EditOrderPage() {
   }, [id])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-  const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-  const { name, value } = target
-  setForm((prev) => (prev ? { ...prev, [name]: value } : prev))
-}
+    const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    const { name, value } = target
+    setForm((prev) => (prev ? { ...prev, [name]: value } : prev))
+  }
 
 
   // ✅ 多檔上傳
@@ -118,6 +121,19 @@ export default function EditOrderPage() {
                 <option key={s}>{s}</option>
               ))}
             </select>
+            {/* ✅ 客製尺寸輸入欄 */}
+            {form.size === "客製" && (
+              <input
+                type="text"
+                name="custom_size_note"
+                placeholder="請輸入客製尺寸說明"
+                value={form.custom_size_note}
+                onChange={(e) =>
+                  setForm((prev) => prev ? { ...prev, custom_size_note: e.target.value } : prev)
+                }
+                className="mt-2 w-full border border-brand-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-brand-300"
+              />
+            )}
           </div>
 
           <div className="flex-1">
@@ -222,34 +238,38 @@ export default function EditOrderPage() {
           </select>
         </div>
 
-        {/* ✅ 按鈕區 */}
-        <div className="pt-6 flex flex-col sm:flex-row justify-between gap-3 border-t border-brand-100 mt-6">
+        {/* 🔧 按鈕區（全新排版） */}
+        <div className="pt-6 border-t border-brand-100 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+
+          {/* 返回 */}
           <button
             type="button"
             onClick={() => router.back()}
-            className="px-4 py-2 rounded-lg border border-brand-300 text-brand-700 hover:bg-brand-100"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-brand-300 text-brand-700 hover:bg-brand-100 text-center"
           >
             返回
           </button>
 
-          <div className="flex gap-3">
+          {/* 刪除 ＋ 儲存 */}
+          <div className="flex gap-3 w-full sm:w-auto justify-end">
             <button
               type="button"
               onClick={handleDelete}
               disabled={deleting}
-              className="px-4 py-2 rounded-lg bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-lg bg-red-100 text-red-700 border border-red-300 hover:bg-red-200 disabled:opacity-50 w-full sm:w-auto"
             >
               {deleting ? "刪除中..." : "刪除訂單"}
             </button>
 
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-brand-400 text-white hover:bg-brand-500"
+              className="px-5 py-2.5 rounded-lg bg-brand-400 text-white hover:bg-brand-500 w-full sm:w-auto"
             >
               儲存修改
             </button>
           </div>
         </div>
+
       </form>
       {/* ✅ 放大圖片 Modal */}
       {activeImage && (
