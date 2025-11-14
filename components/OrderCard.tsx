@@ -13,7 +13,7 @@ const twCurrency = (n: number) =>
 
 export default function OrderCard({ o }: { o: Order }) {
   const [open, setOpen] = useState(false)
-
+   const [activeImage, setActiveImage] = useState<string | null>(null)
   return (
     <div className="bg-white border border-brand-200 rounded-2xl overflow-hidden hover:shadow-soft transition relative">
 
@@ -31,6 +31,7 @@ export default function OrderCard({ o }: { o: Order }) {
         src={o.style_imgs?.[0] || "/placeholder.png"}
         alt="款式"
         className="w-full h-40 object-cover"
+        onClick={() => setActiveImage(o.style_imgs?.[0] ?? null)}
       />
 
       <div className="p-4 space-y-2">
@@ -103,8 +104,34 @@ export default function OrderCard({ o }: { o: Order }) {
               備註：<span className="font-semibold text-brand-900">{o.note || "—"}</span>
             </div>
           </div>
+          
         )}
       </div>
+      {/* 放大圖片 Modal */}
+      {activeImage && (
+        <div
+          onClick={() => setActiveImage(null)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center"
+        >
+          <div
+            className="relative max-w-3xl w-[90%] rounded-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={activeImage}
+              alt="preview-large"
+              className="w-full h-auto max-h-[80vh] object-contain rounded-lg shadow-2xl animate-in fade-in zoom-in"
+            />
+            <button
+              onClick={() => setActiveImage(null)}
+              className="absolute top-2 right-2 bg-black/70 text-white rounded-full px-3 py-1 text-sm hover:bg-black/90 transition"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+    
   )
 }
