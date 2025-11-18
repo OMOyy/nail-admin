@@ -125,7 +125,7 @@ export default function NewOrderPage() {
                         {form.size === "客製" && (
                             <input
                                 type="text"
-                                name="customSizeNote"
+                                name="custom_size_note"
                                 placeholder="請輸入客製尺寸說明"
                                 value={form.custom_size_note}
                                 onChange={handleChange}

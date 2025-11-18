@@ -11,30 +11,54 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
 
-  /** ✅ 初始載入資料 */
-  useEffect(() => {
-    const fetchOrders = async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false })
+  /** ============================
+   *  查詢訂單（加入 tab 條件）
+   * ===========================*/
+  async function fetchOrders(tabNow: "全部" | OrderStatus) {
+    let query = supabase.from("orders").select("*")
 
-      if (error) {
-        console.error("讀取訂單失敗：", error.message)
-      } else if (data) {
-        setOrders(data)
-      }
-      setLoading(false)
+    // ★★★ 這裡修改：全部 → 只抓已付定金前 10 筆
+    if (tabNow === "全部") {
+      query = query.eq("status", "已付定金").limit(10)
+    } else {
+      query = query.eq("status", tabNow)
     }
 
-    fetchOrders()
-  }, [])
+    query = query.order("created_at", { ascending: false })
 
-  /** ✅ 依照狀態過濾 */
+    let res = await query
+
+    // retry
+    if (res.error && res.error.code === "500") {
+      await new Promise(r => setTimeout(r, 50))
+      res = await query
+    }
+
+    return res
+  }
+
+
+  /** 初始載入 */
+  useEffect(() => {
+    setLoading(true)
+    fetchOrders(tab).then((res) => {
+      if (!res.error) setOrders(res.data || [])
+    }).finally(() => setLoading(false))
+  }, [tab])
+
+
+  /** 給 OrderCard 呼叫 */
+  const refreshOrders = () => {
+    fetchOrders(tab).then((res) => {
+      if (!res.error) setOrders(res.data || [])
+    })
+  }
+
+
+  /** 依照狀態過濾 */
   const filtered = useMemo(() => {
-    let list = [...orders]
-    if (tab !== "全部") list = list.filter((o) => o.status === tab)
-    return list
+    if (tab === "全部") return orders
+    return orders.filter((o) => o.status === tab)
   }, [orders, tab])
 
   if (loading)
@@ -63,7 +87,7 @@ export default function OrdersPage() {
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-4">
           {filtered.map((o) => (
-            <OrderCard key={o.id} o={o} />
+            <OrderCard key={o.id} o={o} onStatusUpdated={refreshOrders} />
           ))}
         </div>
       )}
