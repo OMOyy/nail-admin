@@ -134,7 +134,7 @@ export const orderService = {
     if (!old) {
       old = await fetchOrderById(id);
     }
-
+    
     // 3️⃣ 更新 DB
     await updateOrder(id, { status: newStatus });
 

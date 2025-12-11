@@ -160,7 +160,8 @@ export default function StatsPage() {
         <StatCard title={`${selectedMonth} 月營收`} value={`${revenueMonth} 元`} />
         <StatCard title={`${selectedMonth} 月訂單數`} value={`${ordersThisMonth.length} 筆`} />
         <StatCard title="平均客單價" value={`${avgOrderMonth} 元`} />
-        <StatCard title="已完成訂單" value={`${ordersThisMonth.filter(o => o.completed_at).length} 筆`} />
+        <StatCard title="已完成訂單/已寄出" value={`${ordersThisMonth.filter(o => o.status === "已寄出").length
+          } 筆`} />
       </div>
 
       {/* 本月累積營收 */}
@@ -191,7 +192,7 @@ export default function StatsPage() {
 
       {/* 形狀與尺寸 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
+
         {/* 形狀分布 */}
         <div className="p-4 bg-white rounded-2xl border">
           <h2 className="font-semibold mb-3">🍩 形狀分布</h2>
