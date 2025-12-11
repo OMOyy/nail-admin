@@ -71,22 +71,31 @@ export default function DashboardPage() {
 
       return { totalRevenue, totalOrders, avgOrderPrice, pendingCount }
     }, [orders])
-
+  const recent = useMemo(() => orders.slice(0, 6), [orders])
   /* ----------------------------------------------------------
-   *  近 7 日營收 sparkline
+   *  📊 本月累積營收（Sparkline 用）
    * --------------------------------------------------------*/
-  const spark: Point[] = useMemo(() => {
+  const monthlyRevenue: Point[] = useMemo(() => {
+    if (!orders.length) return []
+
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+
+    // 本月天數
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+    // 建立日期 key（1 號到當月最後一天）
     const days: string[] = []
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date()
-      d.setDate(d.getDate() - i)
-      days.push(
-        d.toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })
-      )
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d)
+      days.push(date.toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }))
     }
 
-    const map = new Map(days.map((k) => [k, 0]))
+    // 初始化 map：每日收入
+    const map = new Map<string, number>(days.map((k) => [k, 0]))
 
+    // 聚合每日收入
     for (const o of orders) {
       const key = new Date(o.created_at).toLocaleDateString("zh-TW", {
         timeZone: "Asia/Taipei",
@@ -96,13 +105,17 @@ export default function DashboardPage() {
       }
     }
 
-    return days.map((k, idx) => ({
-      x: idx,
-      y: map.get(k) || 0,
-    }))
+    // ⭐ 改成累積收入
+    let cumulative = 0
+    return days.map((k, idx) => {
+      cumulative += map.get(k) || 0
+      return {
+        x: idx + 1, // 第幾天
+        y: cumulative, // 累積收入
+      }
+    })
   }, [orders])
 
-  const recent = useMemo(() => orders.slice(0, 6), [orders])
 
   /* ----------------------------------------------------------
    *  UI
@@ -148,17 +161,21 @@ export default function DashboardPage() {
 
       {/* 趨勢圖 + 近期訂單 */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* 7 日營收 */}
+        {/* 本月營收 */}
         <div className="rounded-2xl border border-brand-200 bg-white p-4 shadow-soft lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-semibold text-brand-800">近 7 日營收</p>
+            <p className="text-sm font-semibold text-brand-800">本月每日營收</p>
             <span className="text-xs text-brand-600">台北時區</span>
           </div>
-          <ChartSparkline points={spark} />
+
+          <ChartSparkline points={monthlyRevenue} />
+
           <div className="mt-2 text-right text-sm text-brand-700">
-            本日：{twCurrency(spark.at(-1)?.y || 0)}
+            本月累積：{twCurrency(monthlyRevenue.at(-1)?.y || 0)}
           </div>
+
         </div>
+
 
         {/* 近期訂單 */}
         <div className="rounded-2xl border border-brand-200 bg-white p-4 shadow-soft">
