@@ -26,7 +26,7 @@ export default function NewOrderPage() {
         quantity: 1,
         note: "",
         custom_size_note: "",
-        status: "未付定金",
+        status: STATUSES[0],
         price: 0,
     })
 
