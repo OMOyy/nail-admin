@@ -35,3 +35,9 @@ export const SHAPE_LABELS: Record<string, string> = {
 }
 
 export const SIZES = ["XS", "S", "M", "L", "客製"] as const
+
+// 訂單篩選標籤
+export const TABS = ["全部", "未付定金", "已付定金", "已下單", "已寄出", "已完成未下單"] as const
+
+// Tab 的型別
+export type TabKey = typeof TABS[number]
