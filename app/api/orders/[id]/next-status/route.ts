@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_KEY!
 )
 
-const STATUS_FLOW = ["未付定金", "已付定金", "已下單", "已寄出", "已完成未下單"]
+const STATUS_FLOW = [ "已付定金", "已下單", "已寄出"]
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params   // ← ★★★ 必須 await

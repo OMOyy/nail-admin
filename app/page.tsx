@@ -1,69 +1,114 @@
-// src/app/page.tsx
 "use client"
-import { useEffect, useMemo, useState } from "react"
+
+import useSWR from "swr"
 import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
 import StatCard from "@/components/StatCard"
-import ChartSparkline, { Point } from "../components/ChartSparkline"
+import ChartSparkline, { Point } from "@/components/ChartSparkline"
 import type { Order } from "@/types/order"
 import { Package, DollarSign, Activity, Clock } from "lucide-react"
+import { useMemo } from "react"
 
 const twCurrency = (n: number) =>
-  new Intl.NumberFormat("zh-TW", { style: "currency", currency: "TWD", maximumFractionDigits: 0 }).format(n)
+  new Intl.NumberFormat("zh-TW", {
+    style: "currency",
+    currency: "TWD",
+    maximumFractionDigits: 0,
+  }).format(n)
+
+/* ----------------------------------------------------------
+ * 🔥 SWR fetcher：抓「本月」所有訂單
+ * --------------------------------------------------------*/
+const fetchMonthlyOrders = async (): Promise<Order[]> => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const firstDay = new Date(year, month, 1)
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .gte("created_at", firstDay.toISOString()) // 本月
+    .order("created_at", { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return data || []
+}
 
 export default function DashboardPage() {
-  const [loading, setLoading] = useState(true)
-  const [orders, setOrders] = useState<Order[]>([])
+  /* ----------------------------------------------------------
+   * 🔥 SWR：自動快取 + 重新整理 + error retry
+   * --------------------------------------------------------*/
+  const {
+    data: orders = [],
+    isLoading,
+    error,
+  } = useSWR("orders-this-month", fetchMonthlyOrders, {
+    revalidateOnFocus: true,
+    dedupingInterval: 3000,
+  })
 
-  // 取近 30 天訂單
-  useEffect(() => {
-    const fetchOrders = async () => {
-      const since = new Date()
-      since.setDate(since.getDate() - 30)
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .gte("created_at", since.toISOString())
-        .order("created_at", { ascending: false })
-      if (error) console.error(error)
-      setOrders(data || [])
-      setLoading(false)
-    }
-    fetchOrders()
-  }, [])
+  /* ----------------------------------------------------------
+   *  指標計算
+   * --------------------------------------------------------*/
+  const { totalRevenue, totalOrders, avgOrderPrice, pendingCount } =
+    useMemo(() => {
+      const totalRevenue = orders.reduce((s, o) => s + (o.price || 0), 0)
+      const totalOrders = orders.length
+      const avgOrderPrice = totalOrders
+        ? Math.round(totalRevenue / totalOrders)
+        : 0
 
-  // 指標計算
-  const { totalRevenue, totalOrders, avgOrderPrice, pendingCount } = useMemo(() => {
-    const totalRevenue = orders.reduce((s, o) => s + (o.price || 0), 0)
-    const totalOrders = orders.length
-    const avgOrderPrice = totalOrders ? Math.round(totalRevenue / totalOrders) : 0
-    const pendingStatuses = new Set(["未付定金", "已付定金", "已完成未下單", "已下單"])
-    const pendingCount = orders.filter((o) => pendingStatuses.has(o.status)).length
-    return { totalRevenue, totalOrders, avgOrderPrice, pendingCount }
-  }, [orders])
+      const pendingStatuses = new Set([
+        "未付定金",
+        "已付定金",
+        "已完成未下單",
+        "已下單",
+      ])
+      const pendingCount = orders.filter((o) =>
+        pendingStatuses.has(o.status)
+      ).length
 
-  // 7 日營收序列（以台北時區按日聚合）
+      return { totalRevenue, totalOrders, avgOrderPrice, pendingCount }
+    }, [orders])
+
+  /* ----------------------------------------------------------
+   *  近 7 日營收 sparkline
+   * --------------------------------------------------------*/
   const spark: Point[] = useMemo(() => {
-    // 先把近 7 天日期 key 建好
     const days: string[] = []
     for (let i = 6; i >= 0; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
-      days.push(d.toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" }))
+      days.push(
+        d.toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })
+      )
     }
-    const map = new Map<string, number>(days.map((k) => [k, 0]))
+
+    const map = new Map(days.map((k) => [k, 0]))
+
     for (const o of orders) {
-      const key = new Date(o.created_at).toLocaleDateString("zh-TW", { timeZone: "Asia/Taipei" })
-      if (map.has(key)) map.set(key, (map.get(key) || 0) + (o.price || 0))
+      const key = new Date(o.created_at).toLocaleDateString("zh-TW", {
+        timeZone: "Asia/Taipei",
+      })
+      if (map.has(key)) {
+        map.set(key, (map.get(key) || 0) + (o.price || 0))
+      }
     }
-    return days.map((k, idx) => ({ x: idx, y: map.get(k) || 0 }))
+
+    return days.map((k, idx) => ({
+      x: idx,
+      y: map.get(k) || 0,
+    }))
   }, [orders])
 
   const recent = useMemo(() => orders.slice(0, 6), [orders])
 
+  /* ----------------------------------------------------------
+   *  UI
+   * --------------------------------------------------------*/
   return (
     <section className="space-y-6">
-      {/* 頂部區塊 */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-brand-900">儀表板</h1>
         <Link
@@ -77,20 +122,20 @@ export default function DashboardPage() {
       {/* 指標卡片 */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="本月營收(近30天)"
+          title="本月營收"
           value={twCurrency(totalRevenue)}
-          hint="含所有狀態"
+          hint="從月初到今天"
           icon={<DollarSign size={18} />}
         />
         <StatCard
-          title="訂單數(近30天)"
+          title="本月訂單"
           value={totalOrders}
           suffix="筆"
           icon={<Package size={18} />}
         />
         <StatCard
           title="平均客單"
-          value={twCurrency(isFinite(Number(avgOrderPrice)) ? avgOrderPrice : 0)}
+          value={twCurrency(avgOrderPrice)}
           icon={<Activity size={18} />}
         />
         <StatCard
@@ -101,15 +146,13 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* 營收趨勢 & 近期訂單 */}
+      {/* 趨勢圖 + 近期訂單 */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* 趨勢圖 */}
+        {/* 7 日營收 */}
         <div className="rounded-2xl border border-brand-200 bg-white p-4 shadow-soft lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold text-brand-800">近 7 日營收</p>
-            <span className="text-xs text-brand-600">
-              時區：台北（Asia/Taipei）
-            </span>
+            <span className="text-xs text-brand-600">台北時區</span>
           </div>
           <ChartSparkline points={spark} />
           <div className="mt-2 text-right text-sm text-brand-700">
@@ -121,15 +164,21 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-brand-200 bg-white p-4 shadow-soft">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm font-semibold text-brand-800">近期訂單</p>
-            <Link href="/orders" className="text-sm text-brand-600 hover:text-brand-800">
+            <Link
+              href="/orders"
+              className="text-sm text-brand-600 hover:text-brand-800"
+            >
               查看全部 →
             </Link>
           </div>
 
-          {loading ? (
+          {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-12 animate-pulse rounded-lg bg-brand-100" />
+                <div
+                  key={i}
+                  className="h-12 animate-pulse rounded-lg bg-brand-100"
+                />
               ))}
             </div>
           ) : recent.length === 0 ? (
@@ -149,7 +198,9 @@ export default function DashboardPage() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-brand-800">{twCurrency(o.price || 0)}</p>
+                      <p className="font-semibold text-brand-800">
+                        {twCurrency(o.price || 0)}
+                      </p>
                       <p className="text-xs text-brand-600">{o.status}</p>
                     </div>
                   </Link>

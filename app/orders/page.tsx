@@ -4,63 +4,70 @@ import Link from "next/link"
 import OrderCard from "@/components/OrderCard"
 import OrderFilterBar from "@/components/OrderFilterBar"
 import { supabase } from "@/lib/supabaseClient"
-import type { Order, OrderStatus } from "@/types/order"
+import type { Order } from "@/types/order"
+import type { TabKey } from "@/lib/constants"
+import { TABS } from "@/lib/constants"
 
 export default function OrdersPage() {
-  const [tab, setTab] = useState<"全部" | OrderStatus>("全部")
+
+  // ⭐ 預設為第一個 Tab：「已付定金」
+  const [tab, setTab] = useState<TabKey>(TABS[0])
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
 
   /** ============================
-   *  查詢訂單（加入 tab 條件）
+   *  查詢訂單（依 tab 狀態）
    * ===========================*/
-  async function fetchOrders(tabNow: "全部" | OrderStatus) {
-    let query = supabase.from("orders").select("*")
-
-    // ★★★ 這裡修改：全部 → 只抓已付定金前 10 筆
-    if (tabNow === "全部") {
-      query = query.eq("status", "已付定金").limit(10)
-    } else {
-      query = query.eq("status", tabNow)
-    }
-
-    query = query.order("created_at", { ascending: false })
+  async function fetchOrders(tabNow: TabKey) {
+    let query = supabase
+      .from("orders")
+      .select("*")
+      .eq("status", tabNow) // ★ 直接用 tabNow
+      .order("created_at", { ascending: false })
+      .limit(200)
 
     let res = await query
 
-    // retry
+    // Retry 機制
     if (res.error && res.error.code === "500") {
-      await new Promise(r => setTimeout(r, 50))
+      await new Promise((r) => setTimeout(r, 50))
       res = await query
     }
 
     return res
   }
 
-
-  /** 初始載入 */
+  /** ============================
+   *  初始載入 + tab 變動重新抓
+   * ===========================*/
   useEffect(() => {
     setLoading(true)
-    fetchOrders(tab).then((res) => {
-      if (!res.error) setOrders(res.data || [])
-    }).finally(() => setLoading(false))
+    fetchOrders(tab)
+      .then((res) => {
+        if (!res.error) setOrders(res.data || [])
+      })
+      .finally(() => setLoading(false))
   }, [tab])
 
-
-  /** 給 OrderCard 呼叫 */
+  /** ============================
+   *  提供給 OrderCard 更新狀態後重新拉資料
+   * ===========================*/
   const refreshOrders = () => {
     fetchOrders(tab).then((res) => {
       if (!res.error) setOrders(res.data || [])
     })
   }
 
-
-  /** 依照狀態過濾 */
+  /** ============================
+   *  過濾（現在不需要特判「全部」了）
+   * ===========================*/
   const filtered = useMemo(() => {
-    if (tab === "全部") return orders
     return orders.filter((o) => o.status === tab)
   }, [orders, tab])
 
+  /** ============================
+   *  載入畫面
+   * ===========================*/
   if (loading)
     return (
       <div className="flex justify-center items-center h-[50vh] text-brand-700">
@@ -80,8 +87,10 @@ export default function OrdersPage() {
         </Link>
       </div>
 
+      {/* ⭐ tabs：已付定金 | 已下單 | 已寄出 */}
       <OrderFilterBar tab={tab} setTab={setTab} />
 
+      {/* 列表 */}
       {filtered.length === 0 ? (
         <p className="text-center text-brand-600 mt-8">目前沒有訂單</p>
       ) : (

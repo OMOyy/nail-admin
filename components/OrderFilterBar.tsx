@@ -1,16 +1,16 @@
 // src/components/OrderFilterBar.tsx
-import { STATUSES } from "@/lib/constants"
+import { TABS, type TabKey } from "@/lib/constants"
 
 export default function OrderFilterBar({
   tab,
   setTab,
 }: {
-  tab: "全部" | (typeof STATUSES)[number]
-  setTab: (t: "全部" | (typeof STATUSES)[number]) => void
+  tab: TabKey
+  setTab: (t: TabKey) => void
 }) {
   return (
     <div className="flex flex-wrap gap-2 mb-6">
-      {(["全部", ...STATUSES] as const).map((t) => (
+      {TABS.map((t) => (
         <button
           key={t}
           onClick={() => setTab(t)}

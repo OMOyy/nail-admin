@@ -6,40 +6,40 @@ import OrderCard from "@/components/OrderCard"
 import OrderFilterBar from "@/components/OrderFilterBar"
 import type { Order } from "@/types/order"
 import type { TabKey } from "@/lib/constants"
-import { useState, useMemo } from "react"
+import { useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 
 // ---------------------
-// 🔥 SWR fetcher（支援 tab）
+// 🔥 SWR fetcher（已移除 "全部" 相關處理）
 // ---------------------
 const fetchOrders = async (tab: TabKey): Promise<Order[]> => {
-  let q = supabase.from("orders").select("*")
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("status", tab)                         // ← 直接依狀態查詢
+    .order("created_at", { ascending: false })
+    .limit(200)
 
-  if (tab !== "全部") {
-    q = q.eq("status", tab)
-  }
-
-  q = q.order("created_at", { ascending: false }).limit(200)
-
-  const { data, error } = await q
   if (error) throw new Error(error.message)
   return data || []
 }
 
 export default function OrdersClient() {
-  const [tab, setTab] = useState<TabKey>("全部")
 
-  // ⭐ SWR：依 tab 建立不同快取
+  // ⭐ 預設 = 已付定金
+  const [tab, setTab] = useState<TabKey>("已付定金")
+
+  // ⭐ SWR：依 tab 抓資料
   const { data, isLoading, mutate, error } = useSWR(
-    ["orders", tab],          // ← 每個 tab 有獨立快取
+    ["orders", tab],
     () => fetchOrders(tab),
     {
-      revalidateOnFocus: true,     // 回到頁面自動 refresh
-      dedupingInterval: 3000,      // 避免過度抓資料
+      revalidateOnFocus: true,
+      dedupingInterval: 3000,
     }
   )
 
-  // ⭐ 更新狀態後重新抓（但只抓這個 tab）
+  // ⭐ 狀態更新後 refresh
   const refreshOrders = () => mutate()
 
   return (
@@ -55,20 +55,24 @@ export default function OrdersClient() {
         </Link>
       </div>
 
-      {/* ⭐ Tab 過濾 UI */}
+      {/* ⭐ 移除全部，只顯示你設定的 STATUSES Tabs */}
       <OrderFilterBar tab={tab} setTab={setTab} />
 
-      {/* ⭐ 錯誤顯示 */}
-      {error && <p className="text-center text-red-500 mt-2">讀取失敗：{error.message}</p>}
+      {/* 錯誤 */}
+      {error && (
+        <p className="text-center text-red-500 mt-2">
+          讀取失敗：{error.message}
+        </p>
+      )}
 
-      {/* ⭐ 載入中 */}
+      {/* 載入中 */}
       {isLoading && (
         <div className="flex justify-center items-center h-[50vh] text-brand-700">
           載入中...
         </div>
       )}
 
-      {/* ⭐ 列表 */}
+      {/* 訂單列表 */}
       {!isLoading && data && (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mt-4">
           {data.map(o => (

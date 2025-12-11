@@ -3,13 +3,14 @@ import { useState } from "react"
 import Link from "next/link"
 import type { Order } from "@/types/order"
 import { ChevronDown, ChevronUp, Pencil } from "lucide-react"
+import { STATUSES } from "@/lib/constants"
 
 type Props = {
   o: Order
   onStatusUpdated?: () => void   // ⭐ 父層傳入更新函式
 }
 
-const STATUS_FLOW = ["未付定金", "已付定金", "已下單", "已寄出", "已完成未下單"]
+const STATUS_FLOW = ["已付定金", "已下單", "已寄出"]
 type OrderStatus = (typeof STATUS_FLOW)[number]
 
 const twCurrency = (n: number) =>
@@ -108,10 +109,8 @@ export default function OrderCard({ o, onStatusUpdated }: Props) {
           <span
             className={[
               "px-2.5 py-1 rounded-full text-xs border font-medium",
-              status === "已完成未下單" && "bg-green-100 text-green-800 border-green-300",
               status === "已寄出" && "bg-blue-100 text-blue-800 border-blue-300",
               status === "已付定金" && "bg-yellow-100 text-yellow-800 border-yellow-300",
-              status === "未付定金" && "bg-gray-100 text-gray-700 border-gray-300",
               status === "已下單" && "bg-orange-100 text-orange-800 border-orange-300",
             ]
               .filter(Boolean)
@@ -125,13 +124,22 @@ export default function OrderCard({ o, onStatusUpdated }: Props) {
           </span>
         </div>
 
+  
         {/* ⭐ 狀態往後推按鈕 */}
         <button
           onClick={handleNextStatus}
-          className="w-full mt-2 py-1.5 text-sm rounded-lg bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-200 transition"
+          disabled={STATUSES.indexOf(o.status) === STATUSES.length - 1}
+          className="w-full mt-2 py-1.5 text-sm rounded-lg 
+             bg-blue-100 text-blue-700 border border-blue-300 
+             hover:bg-blue-200 disabled:opacity-40 disabled:cursor-not-allowed transition"
         >
-          ➡️ 狀態往後一格
+          ➡️ {(() => {
+            const idx = STATUSES.indexOf(o.status)
+            const next = STATUSES[idx + 1]
+            return next ? `${next}` : "已是最後狀態"
+          })()}
         </button>
+
 
         {/* 詳細資訊開關 */}
         <button
