@@ -8,7 +8,7 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
-
+import { getServerSupabase } from "@/lib/serverSupabase"
 // ---------------- R2 Client ----------------
 const r2 = new S3Client({
   region: "auto",
@@ -20,10 +20,7 @@ const r2 = new S3Client({
 });
 
 // ---------------- Supabase (server role) ----------------
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServerSupabase()
 
 export async function POST(
   req: Request,

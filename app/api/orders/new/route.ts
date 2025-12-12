@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-
+import { getServerSupabase } from "@/lib/serverSupabase"
 const r2 = new S3Client({
   region: "auto",
   endpoint: process.env.R2_ENDPOINT_URL!,
@@ -12,10 +12,7 @@ const r2 = new S3Client({
   },
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!  // ← 新增
-)
+const supabase = getServerSupabase()
 // ✅ 產生台灣時間戳（YYYYMMDD-HHMMSS）
 function taipeiStamp() {
   const s = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Taipei" }); // 2025-12-12 10:30:45

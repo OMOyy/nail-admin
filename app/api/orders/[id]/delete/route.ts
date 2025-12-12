@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
-
+import { getServerSupabase } from "@/lib/serverSupabase"
 // ✅ 在 route 裡「當場 new」
 const r2 = new S3Client({
   region: "auto",
@@ -14,10 +14,7 @@ const r2 = new S3Client({
   },
 });
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = getServerSupabase()
 
 export async function POST(
   _req: Request,
