@@ -4,7 +4,7 @@ import { useRouter, useParams } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 import { SIZES, SHAPES, STATUSES } from "@/lib/constants"
 import type { Order } from "@/types/order"
-
+import { compressImage } from "../../../utils/compressImage";
 export default function EditOrderPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
@@ -15,6 +15,36 @@ export default function EditOrderPage() {
   const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [activeImage, setActiveImage] = useState<string | null>(null)
+  // ----------------------------------------------------
+  // 壓縮圖片
+  // ----------------------------------------------------
+  async function uploadImageDirect(file: File): Promise<string> {
+    // 1️⃣ 壓縮
+    const compressed = await compressImage(file);
+
+    // 2️⃣ 取得 signed URL
+    const res = await fetch("/api/r2/sign-upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: compressed.name,
+        contentType: compressed.type,
+      }),
+    });
+
+    const { uploadUrl, publicUrl } = await res.json();
+
+    // 3️⃣ 直傳 R2
+    await fetch(uploadUrl, {
+      method: "PUT",
+      body: compressed,
+      headers: {
+        "Content-Type": compressed.type,
+      },
+    });
+
+    return publicUrl;
+  }
 
   // ----------------------------------------------------
   // 讀取訂單（只讀，不寫 DB）
@@ -81,50 +111,57 @@ export default function EditOrderPage() {
   // ----------------------------------------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form) return
+    if (!form || !id) return
+
     setSaving(true)
-    const fd = new FormData()
 
-    // ✅ 白名單資料（一定要）
-    fd.append(
-      "data",
-      JSON.stringify({
-        customer: form.customer,
-        size: form.size,
-        shape: form.shape,
-        custom_size_note: form.custom_size_note,
-        quantity: form.quantity,
-        price: form.price,
-        note: form.note,
-        status: form.status,
+    try {
+      const fd = new FormData()
+
+      // ① 白名單 JSON（一定要）
+      fd.append(
+        "data",
+        JSON.stringify({
+          customer: form.customer,
+          size: form.size,
+          shape: form.shape,
+          custom_size_note: form.custom_size_note,
+          quantity: form.quantity,
+          price: form.price,
+          note: form.note,
+          status: form.status,
+        })
+      )
+
+      // ② 圖片分流
+      images.forEach((img) => {
+        if (typeof img === "string") {
+          fd.append("oldImages", img)
+        } else {
+          fd.append("newImages", img)
+        }
       })
-    )
 
-    // 分流：舊圖 / 新圖
-    images.forEach((img) => {
-      if (typeof img === "string") {
-        fd.append("oldImages", img)
-      } else {
-        fd.append("newImages", img)
+      const res = await fetch(`/api/orders/${id}/edit`, {
+        method: "POST",
+        body: fd, // ❗ 不要加 Content-Type
+      })
+
+      const result = await res.json()
+
+      if (!res.ok || !result.success) {
+        throw new Error(result.error ?? "更新失敗")
       }
-    })
 
-    const res = await fetch(`/api/orders/${id}/edit`, {
-      method: "POST",
-      body: fd,
-    })
-
-    const result = await res.json()
-
-    if (!res.ok || !result.success) {
-      alert("更新失敗：" + result.error)
-      return
+      alert("✅ 修改成功")
+      router.push("/orders")
+    } catch (err: any) {
+      alert("更新失敗：" + err.message)
+    } finally {
+      setSaving(false)
     }
-
-    alert("✅ 修改成功")
-    setSaving(false)
-    router.push("/orders")
   }
+
 
   // ----------------------------------------------------
   // 刪除訂單 → 打 API（刪 R2 + 刪 DB）
@@ -338,10 +375,10 @@ export default function EditOrderPage() {
 
             <button
               type="submit"
-               disabled={saving}
+              disabled={saving}
               className="px-5 py-2.5 rounded-lg bg-brand-400 text-white hover:bg-brand-500 w-full sm:w-auto"
             >
-               {saving ? "儲存修改中..." : "儲存修改"}
+              {saving ? "儲存修改中..." : "儲存修改"}
             </button>
           </div>
         </div>
