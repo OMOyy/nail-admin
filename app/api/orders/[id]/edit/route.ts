@@ -1,3 +1,6 @@
+// /app/api/orders/[id]/edit/route.ts
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -16,50 +19,48 @@ const r2 = new S3Client({
   },
 });
 
-// ---------------- Supabase ----------------
+// ---------------- Supabase (server role) ----------------
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_KEY!
 );
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  console.log("🔥 HIT /api/orders/[id]/edit", params.id);
+
   const id = params.id;
   const form = await req.formData();
 
-  /** ① 前端傳來的資料 */
+  // ① 前端 JSON
   const json = JSON.parse(form.get("data") as string);
 
-  /** 移除前端不該更新的欄位 */
-  delete json.id;
-  delete json.created_at;
-  delete json.updated_at;
-  delete json.style_imgs;
-
-  /** ② 舊圖片（前端保留的） */
+  // ② 舊圖片（URL）
   const oldImages = form.getAll("oldImages") as string[];
 
-  /** ③ 新圖片 */
+  // ③ 新圖片（File）
   const newFiles = form.getAll("newImages") as File[];
 
-  // ---------------------------------------------------
-  // ④ 從資料庫抓出原始圖片
-  // ---------------------------------------------------
-  const { data: exist } = await supabase
+  // ④ 讀取資料庫原本圖片
+  const { data: exist, error: fetchErr } = await supabase
     .from("orders")
     .select("style_imgs")
     .eq("id", id)
     .single();
 
+  if (fetchErr) {
+    return NextResponse.json({ success: false, error: fetchErr.message });
+  }
+
   const existingUrls: string[] = exist?.style_imgs || [];
 
-  // 計算需要刪除的圖片
+  // ⑤ 刪除被移除的圖片
   const toDelete = existingUrls.filter((url) => !oldImages.includes(url));
 
-  // ---------------------------------------------------
-  // ⑤ 刪除 R2 中不保留的圖片
-  // ---------------------------------------------------
   for (const url of toDelete) {
-    const key = url.split("/").pop();
+    const key = url.replace(process.env.R2_PUBLIC_URL + "/", "");
     if (!key) continue;
 
     await r2.send(
@@ -70,14 +71,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     );
   }
 
-  // ---------------------------------------------------
-  // ⑥ 上傳新增圖片
-  // ---------------------------------------------------
+  // ⑥ 上傳新圖片
   const newUrls: string[] = [];
 
   for (const file of newFiles) {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const ext = file.type.split("/")[1] || "jpg";
+    const ext = file.name.split(".").pop() ?? "jpg";
     const filename = `order-${id}-${Date.now()}-${Math.random()}.${ext}`;
 
     await r2.send(
@@ -92,14 +91,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     newUrls.push(`${process.env.R2_PUBLIC_URL}/${filename}`);
   }
 
-  // ---------------------------------------------------
-  // ⑦ 組合最終圖片列表
-  // ---------------------------------------------------
+  // ⑦ 最終圖片列表
   const finalImageList = [...oldImages, ...newUrls];
 
-  // ---------------------------------------------------
-  // ⑧ 白名單欄位（絕對安全）
-  // ---------------------------------------------------
+  // ⑧ 白名單欄位
   const allowed = {
     customer: json.customer ?? null,
     size: json.size ?? null,
@@ -112,20 +107,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     style_imgs: finalImageList,
   };
 
-  // ---------------------------------------------------
-  // ⑨ 進行唯一一次 UPDATE（完全安全）
-  // ---------------------------------------------------
-  const { error } = await supabase
+  // ⑨ 更新資料
+  const { error: updateErr } = await supabase
     .from("orders")
     .update(allowed)
     .eq("id", id);
 
-  if (error) {
-    return NextResponse.json({ success: false, error: error.message });
+  if (updateErr) {
+    return NextResponse.json({ success: false, error: updateErr.message });
   }
 
-  return NextResponse.json({
-    success: true,
-    updated: allowed,
-  });
+  return NextResponse.json({ success: true });
 }

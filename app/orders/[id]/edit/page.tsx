@@ -7,87 +7,152 @@ import type { Order } from "@/types/order"
 
 export default function EditOrderPage() {
   const router = useRouter()
-  const { id } = useParams()
+  const { id } = useParams<{ id: string }>()
+
   const [form, setForm] = useState<Order | null>(null)
-  const [previews, setPreviews] = useState<string[]>([])
+  const [images, setImages] = useState<(string | File)[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [activeImage, setActiveImage] = useState<string | null>(null)
-  // ✅ 讀取訂單
+
+  // ----------------------------------------------------
+  // 讀取訂單（只讀，不寫 DB）
+  // ----------------------------------------------------
   useEffect(() => {
     const fetchOrder = async () => {
-      const { data, error } = await supabase.from("orders").select("*").eq("id", id).single()
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", id)
+        .single()
+
       if (error) {
         console.error(error)
       } else if (data) {
         setForm({
           ...data,
-          custom_size_note: data.custom_size_note ?? ""
+          custom_size_note: data.custom_size_note ?? "",
         })
-        setPreviews(data.style_imgs || [])
+        // 舊圖 = URL（string）
+        setImages(data.style_imgs || [])
       }
+
       setLoading(false)
     }
+
     fetchOrder()
   }, [id])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const target = e.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    const { name, value } = target
+  // ----------------------------------------------------
+  // 一般欄位變更
+  // ----------------------------------------------------
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, value } = e.target
     setForm((prev) => (prev ? { ...prev, [name]: value } : prev))
   }
 
-
-  // ✅ 多檔上傳
+  // ----------------------------------------------------
+  // 新圖片選擇（只存 File，不轉 base64）
+  // ----------------------------------------------------
   const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files) return
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const base64 = reader.result as string
-        setPreviews((prev) => [...prev, base64])
-      }
-      reader.readAsDataURL(file)
-    })
+    if (!e.target.files) return
+    setImages((prev) => [...prev, ...Array.from(e.target.files!)])
   }
 
-  // ✅ 刪除單張圖片
+  // ----------------------------------------------------
+  // 移除圖片（URL 或 File 都可）
+  // ----------------------------------------------------
   const handleRemoveImage = (index: number) => {
-    setPreviews((prev) => prev.filter((_, i) => i !== index))
+    setImages((prev) => prev.filter((_, i) => i !== index))
   }
 
-  // ✅ 儲存修改
+  // ----------------------------------------------------
+  // 送出修改 → R2 API
+  // ----------------------------------------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form) return
-    const { error } = await supabase
-      .from("orders")
-      .update({ ...form, style_imgs: previews })
-      .eq("id", id)
 
-    if (error) alert(error.message)
-    else router.push("/orders")
+    const fd = new FormData()
+
+    // ✅ 白名單資料（一定要）
+    fd.append(
+      "data",
+      JSON.stringify({
+        customer: form.customer,
+        size: form.size,
+        shape: form.shape,
+        custom_size_note: form.custom_size_note,
+        quantity: form.quantity,
+        price: form.price,
+        note: form.note,
+        status: form.status,
+      })
+    )
+
+    // 分流：舊圖 / 新圖
+    images.forEach((img) => {
+      if (typeof img === "string") {
+        fd.append("oldImages", img)
+      } else {
+        fd.append("newImages", img)
+      }
+    })
+
+    const res = await fetch(`/api/orders/${id}/edit`, {
+      method: "POST",
+      body: fd,
+    })
+
+    const result = await res.json()
+
+    if (!res.ok || !result.success) {
+      alert("更新失敗：" + result.error)
+      return
+    }
+
+    alert("✅ 修改成功")
+    router.push("/orders")
   }
 
-  // ✅ 刪除整筆訂單
+  // ----------------------------------------------------
+  // 刪除訂單 → 打 API（刪 R2 + 刪 DB）
+  // ----------------------------------------------------
   const handleDelete = async () => {
     if (!form) return
+
     const confirmed = confirm(`確定要刪除「${form.customer}」的訂單嗎？`)
     if (!confirmed) return
 
     setDeleting(true)
-    const { error } = await supabase.from("orders").delete().eq("id", form.id)
-    setDeleting(false)
 
-    if (error) {
-      alert("刪除失敗：" + error.message)
-    } else {
+    try {
+      const res = await fetch(`/api/orders/${id}/delete`, {
+        method: "POST",
+      })
+
+      const result = await res.json()
+
+      if (!res.ok || !result.success) {
+        alert("刪除失敗：" + result.error)
+        return
+      }
+
       alert("✅ 訂單已刪除")
       router.push("/orders")
+    } catch (err) {
+      alert("刪除失敗（網路錯誤）")
+    } finally {
+      setDeleting(false)
     }
   }
-
+  // ----------------------------------------------------
+  // render
+  // ----------------------------------------------------
   if (loading) return <div className="text-center py-10 text-brand-700">載入中...</div>
   if (!form) return <div className="text-center py-10 text-brand-700">找不到此訂單</div>
 
@@ -163,26 +228,29 @@ export default function EditOrderPage() {
           />
 
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 mt-3">
-            {previews.map((src, idx) => (
-              <div key={idx} className="relative group">
-                <img
-                  src={src}
-                  alt={`preview-${idx}`}
-                  onClick={() => setActiveImage(src)}
-                  className="w-full h-24 object-cover rounded-lg border border-brand-200 shadow-sm cursor-pointer hover:scale-[1.03] transition"
-                />
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleRemoveImage(idx)
-                  }}
-                  className="absolute top-1 right-1 bg-black/60 text-white text-xs rounded-full px-2 py-0.5  group-hover:opacity-100 transition"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+            {images.map((img, idx) => {
+              const url =
+                typeof img === "string"
+                  ? img
+                  : URL.createObjectURL(img)
+
+              return (
+                <div key={idx} className="relative">
+                  <img
+                    src={url}
+                    onClick={() => setActiveImage(url)}
+                    className="w-full h-24 object-cover rounded-lg border cursor-pointer"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-1 right-1 bg-black/60 text-white text-xs rounded-full px-2"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
 

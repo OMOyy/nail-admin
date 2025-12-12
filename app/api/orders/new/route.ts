@@ -14,30 +14,41 @@ const r2 = new S3Client({
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY!
-);
-
+  process.env.NEXT_PUBLIC_SUPABASE_KEY!  // ← 新增
+)
+// ✅ 產生台灣時間戳（YYYYMMDD-HHMMSS）
+function taipeiStamp() {
+  const s = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Taipei" }); // 2025-12-12 10:30:45
+  return s.replace(/[-: ]/g, "").slice(0, 14); // 20251212103045
+}
 export async function POST(req: Request) {
+  
   const form = await req.formData();
+
+  // JSON 字段
   const json = JSON.parse(form.get("data") as string);
-  const imgs = form.getAll("images") as string[];
+
+  // 多張圖片（真正是 File，不是 string）
+  const files = form.getAll("images") as File[];
 
   const urls: string[] = [];
+  
+  for (const file of files) {
+    const arrayBuffer = await file.arrayBuffer();
 
-  for (const b64 of imgs) {
-    const buffer = Buffer.from(b64.split(",")[1], "base64");
-    const fileName = `order-${Date.now()}-${Math.random()}.jpg`;
+    const ext = file.name.split(".").pop() ?? "jpg";
+    const filename = `order-${taipeiStamp()}-${crypto.randomUUID()}.${ext}`;
 
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET_NAME!,
-        Key: fileName,
-        Body: buffer,
-        ContentType: "image/jpeg",
+        Key: filename,
+        Body: Buffer.from(arrayBuffer),
+        ContentType: file.type,
       })
     );
 
-    urls.push(`${process.env.R2_PUBLIC_URL}/${fileName}`);
+    urls.push(`${process.env.R2_PUBLIC_URL}/${filename}`);
   }
 
   const { error } = await supabase
@@ -45,6 +56,6 @@ export async function POST(req: Request) {
     .insert([{ ...json, style_imgs: urls }]);
 
   if (error) return NextResponse.json({ success: false, error: error.message });
-
+  
   return NextResponse.json({ success: true });
 }

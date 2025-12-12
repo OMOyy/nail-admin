@@ -2,27 +2,27 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { SHAPES, SIZES, STATUSES } from "@/lib/constants"
-import { supabase } from "../../../lib/supabaseClient";
-type FormData = {
-    customer: string
-    size: string
-    shape: string
-    styleImgs: string[]
-    quantity: number
-    note: string
-    custom_size_note: string
-    status: string
-    price: number
+
+
+type FormDataType = {
+  customer: string
+  size: string
+  shape: string
+  quantity: number
+  note: string
+  custom_size_note: string
+  status: string
+  price: number
 }
 
 export default function NewOrderPage() {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
-    const [form, setForm] = useState<FormData>({
+
+    const [form, setForm] = useState<FormDataType>({
         customer: "",
         size: "M",
         shape: "短圓",
-        styleImgs: [],
         quantity: 1,
         note: "",
         custom_size_note: "",
@@ -30,62 +30,56 @@ export default function NewOrderPage() {
         price: 0,
     })
 
+    const [files, setFiles] = useState<File[]>([])
     const [previews, setPreviews] = useState<string[]>([])
     const [activeImage, setActiveImage] = useState<string | null>(null)
 
-    /** ✅ 欄位輸入 */
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target
         setForm((prev) => ({ ...prev, [name]: value }))
     }
 
-    /** ✅ 多圖片上傳 */
+    /** ✅ 多圖片上傳（使用 blob URL 預覽，不用 base64） */
     const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files
-        if (!files?.length) return
+        const selected = e.target.files
+        if (!selected) return
 
-        Array.from(files).forEach((file) => {
-            const reader = new FileReader()
-            reader.onload = () => {
-                const base64 = reader.result as string
-                setPreviews((prev) => [...prev, base64])
-            }
-            reader.readAsDataURL(file)
-        })
+        const newFiles = Array.from(selected)
+        setFiles((prev) => [...prev, ...newFiles])
+
+        const urls = newFiles.map((f) => URL.createObjectURL(f))
+        setPreviews((prev) => [...prev, ...urls])
     }
 
-    /** ✅ 刪除圖片 */
+    /** ❌ 不再存 base64 — 改成只刪除 File/Preview */
     const removeImage = (idx: number) => {
+        setFiles((prev) => prev.filter((_, i) => i !== idx))
         setPreviews((prev) => prev.filter((_, i) => i !== idx))
     }
 
-    /** ✅ 送出表單 */
+    /** ✅ 正式送出表單 → 傳到 /api/orders → R2 → Supabase */
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
 
-        const { data, error } = await supabase.from("orders").insert([
-            {
-                customer: form.customer,
-                size: form.size,
-                custom_size_note: form.custom_size_note,
-                shape: form.shape,
-                style_imgs: previews,
-                quantity: form.quantity,
-                note: form.note,
-                status: form.status,
-                price: form.price,
-            },
-        ])
+        const fd = new FormData()
+        fd.append("data", JSON.stringify(form))
+        files.forEach((f) => fd.append("images", f))
 
-        if (error) {
-            alert("❌ 新增失敗：" + error.message)
-            setLoading(false)
+        const res = await fetch("/api/orders/new", {
+            method: "POST",
+            body: fd,
+        })
+
+        const result = await res.json()
+        setLoading(false)
+
+        if (!res.ok) {
+            alert("❌ 新增失敗：" + result.error)
             return
         }
 
-        console.log("✅ 已新增訂單：", data)
-        setLoading(false)
+        alert("✅ 訂單已新增！")
         router.push("/orders")
     }
 

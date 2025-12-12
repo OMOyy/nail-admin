@@ -1,59 +1,59 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabaseClient";
-import { r2 } from "@/lib/r2Client";
-import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { createClient } from "@supabase/supabase-js";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
-export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
-  // ⬇⬇⬇ 這一行是整個問題的核心
-  const { id } = await context.params; // ⭐ 必須 await，不然永遠 undefined
+// ✅ 在 route 裡「當場 new」
+const r2 = new S3Client({
+  region: "auto",
+  endpoint: process.env.R2_ENDPOINT_URL!,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
+});
 
-  console.log("DELETE ORDER ID =", id);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_KEY!
+);
 
-  // 1️⃣ 取得圖片 URL
-  const { data: order, error: fetchErr } = await supabase
+export async function POST(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  const id = params.id;
+  console.log("🔥 DELETE ORDER HIT, id =", id);
+
+  // 1️⃣ 取圖片
+  const { data: order } = await supabase
     .from("orders")
     .select("style_imgs")
     .eq("id", id)
     .single();
 
-  if (fetchErr || !order) {
-    console.error("Fetch error:", fetchErr);
-    return NextResponse.json({
-      success: false,
-      error: "找不到訂單，可能已被刪除",
-    });
-  }
+  const imgs: string[] = order?.style_imgs || [];
 
-  const imgs: string[] = order.style_imgs || [];
-
-  // 2️⃣ 刪除 R2 圖片
+  // 2️⃣ 刪 R2
   for (const url of imgs) {
-    const key = url.split("/").pop();
+    const key = url.replace(process.env.R2_PUBLIC_URL + "/", "").split("?")[0];
     if (!key) continue;
 
-    try {
-      await r2.send(
-        new DeleteObjectCommand({
-          Bucket: process.env.R2_BUCKET_NAME!,
-          Key: key,
-        })
-      );
-      console.log("Deleted R2:", key);
-    } catch (err) {
-      console.error("R2 deletion error:", err);
-    }
+    console.log("🗑️ Deleting R2 key =", key);
+
+    await r2.send(
+      new DeleteObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: key,
+      })
+    );
+
+    console.log("✅ R2 deleted:", key);
   }
 
-  // 3️⃣ 刪除 Supabase 訂單
-  const { error: delErr } = await supabase.from("orders").delete().eq("id", id);
-
-  if (delErr) {
-    console.error("Supabase delete error:", delErr);
-    return NextResponse.json({
-      success: false,
-      error: "Supabase 刪除失敗：" + delErr.message,
-    });
-  }
+  // 3️⃣ 刪 DB
+  await supabase.from("orders").delete().eq("id", id);
 
   return NextResponse.json({ success: true });
 }
