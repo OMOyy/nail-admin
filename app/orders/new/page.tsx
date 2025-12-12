@@ -2,22 +2,23 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { SHAPES, SIZES, STATUSES } from "@/lib/constants"
+import { compressImage } from "../../utils/compressImage";
 
 
 type FormDataType = {
-  customer: string
-  size: string
-  shape: string
-  quantity: number
-  note: string
-  custom_size_note: string
-  status: string
-  price: number
+    customer: string
+    size: string
+    shape: string
+    quantity: number
+    note: string
+    custom_size_note: string
+    status: string
+    price: number
 }
 
 export default function NewOrderPage() {
     console.log("R2_ACCESS_KEY_ID =", process.env.R2_ACCESS_KEY_ID);
-//
+    //
     const router = useRouter()
     const [loading, setLoading] = useState(false)
 
@@ -64,26 +65,35 @@ export default function NewOrderPage() {
         e.preventDefault()
         setLoading(true)
 
-        const fd = new FormData()
-        fd.append("data", JSON.stringify(form))
-        files.forEach((f) => fd.append("images", f))
+        try {
+            const fd = new FormData()
+            fd.append("data", JSON.stringify(form))
 
-        const res = await fetch("/api/orders/new", {
-            method: "POST",
-            body: fd,
-        })
+            // 🗜️ 關鍵：這裡壓縮
+            for (const file of files) {
+                const compressed = await compressImage(file)
+                fd.append("images", compressed)
+            }
 
-        const result = await res.json()
-        setLoading(false)
+            const res = await fetch("/api/orders/new", {
+                method: "POST",
+                body: fd,
+            })
 
-        if (!res.ok) {
-            alert("❌ 新增失敗：" + result.error)
-            return
+            const result = await res.json()
+
+            if (!res.ok) {
+                alert("❌ 新增失敗：" + result.error)
+                return
+            }
+
+            alert("✅ 訂單已新增！")
+            router.push("/orders")
+        } finally {
+            setLoading(false)
         }
-
-        alert("✅ 訂單已新增！")
-        router.push("/orders")
     }
+
 
     return (
         <section className="max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-soft border border-brand-200">

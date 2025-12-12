@@ -134,13 +134,14 @@ export default function EditOrderPage() {
       )
 
       // ② 圖片分流
-      images.forEach((img) => {
+      for (const img of images) {
         if (typeof img === "string") {
           fd.append("oldImages", img)
         } else {
-          fd.append("newImages", img)
+          const compressed = await compressImage(img)
+          fd.append("newImages", compressed)
         }
-      })
+      }
 
       const res = await fetch(`/api/orders/${id}/edit`, {
         method: "POST",
