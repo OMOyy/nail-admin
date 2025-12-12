@@ -14,7 +14,6 @@ const r2 = new S3Client({
   },
 });
 
-const supabase = getServerSupabase()
 
 export async function POST(
   _req: Request,
@@ -22,6 +21,7 @@ export async function POST(
 ) {
   const id = params.id;
   console.log("🔥 DELETE ORDER HIT, id =", id);
+  const supabase = getServerSupabase()
 
   // 1️⃣ 取圖片
   const { data: order } = await supabase

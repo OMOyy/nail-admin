@@ -20,7 +20,6 @@ const r2 = new S3Client({
 });
 
 // ---------------- Supabase (server role) ----------------
-const supabase = getServerSupabase()
 
 export async function POST(
   req: Request,
@@ -39,6 +38,8 @@ export async function POST(
 
   // ③ 新圖片（File）
   const newFiles = form.getAll("newImages") as File[];
+  
+  const supabase = getServerSupabase()
 
   // ④ 讀取資料庫原本圖片
   const { data: exist, error: fetchErr } = await supabase
