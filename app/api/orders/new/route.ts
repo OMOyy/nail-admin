@@ -1,4 +1,5 @@
-// app/api/orders/new/route.ts
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -12,47 +13,53 @@ const r2 = new S3Client({
   },
 });
 
-// ✅ 產生台灣時間戳（YYYYMMDD-HHMMSS）
-function taipeiStamp() {
-  const s = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Taipei" }); // 2025-12-12 10:30:45
-  return s.replace(/[-: ]/g, "").slice(0, 14); // 20251212103045
-}
+
 export async function POST(req: Request) {
+  try {
+    console.log("🔥 HIT /api/orders/new");
 
-  const form = await req.formData();
+    const form = await req.formData();
+    const json = JSON.parse(form.get("data") as string);
+    const files = form.getAll("images") as File[];
 
-  // JSON 字段
-  const json = JSON.parse(form.get("data") as string);
+    const urls: string[] = [];
 
-  // 多張圖片（真正是 File，不是 string）
-  const files = form.getAll("images") as File[];
+    for (const file of files) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const filename = `order-${Date.now()}-${Math.random()}.${ext}`;
 
-  const urls: string[] = [];
+      await r2.send(
+        new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME!,
+          Key: filename,
+          Body: buffer,
+          ContentType: file.type,
+        })
+      );
 
-  for (const file of files) {
-    const arrayBuffer = await file.arrayBuffer();
+      urls.push(`${process.env.R2_PUBLIC_URL}/${filename}`);
+    }
+    const supabase = getServerSupabase()
+    const { error } = await supabase
+      .from("orders")
+      .insert([{ ...json, style_imgs: urls }]);
 
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const filename = `order-${taipeiStamp()}-${crypto.randomUUID()}.${ext}`;
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
 
-    await r2.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: filename,
-        Body: Buffer.from(arrayBuffer),
-        ContentType: file.type,
-      })
+    return NextResponse.json({ success: true });
+
+  } catch (err: any) {
+    console.error("🔥 API CRASH:", err);
+    return NextResponse.json(
+      { success: false, error: err.message ?? "Unknown server error" },
+      { status: 500 }
     );
-
-    urls.push(`${process.env.R2_PUBLIC_URL}/${filename}`);
   }
-
-  const supabase = getServerSupabase()
-  const { error } = await supabase
-    .from("orders")
-    .insert([{ ...json, style_imgs: urls }]);
-
-  if (error) return NextResponse.json({ success: false, error: error.message });
-
-  return NextResponse.json({ success: true });
 }
