@@ -338,6 +338,7 @@ export default function EditOrderPage() {
 
             <button
               type="submit"
+               disabled={saving}
               className="px-5 py-2.5 rounded-lg bg-brand-400 text-white hover:bg-brand-500 w-full sm:w-auto"
             >
                {saving ? "儲存修改中..." : "儲存修改"}
