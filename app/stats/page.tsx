@@ -130,7 +130,7 @@ export default function StatsPage() {
 
       {/* 頁首 + 月份切換 */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-brand-900">銷售統計（月報）</h1>
+        <h1 className="text-2xl font-bold text-brand-900">銷售統計</h1>
 
         <div className="flex items-center gap-3">
           {/* ⭐ 月份選擇下拉 */}

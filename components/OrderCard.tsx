@@ -24,6 +24,7 @@ export default function OrderCard({ o, onStatusUpdated }: Props) {
   const [open, setOpen] = useState(false)
   const [activeImage, setActiveImage] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [loading, setLoading] = useState(false)
 
   // ⭐ 用 local state 讓畫面能更新
   const [status, setStatus] = useState<OrderStatus>(o.status as OrderStatus)
@@ -31,6 +32,7 @@ export default function OrderCard({ o, onStatusUpdated }: Props) {
   /** ⭐ 狀態往後推 */
   const handleNextStatus = async () => {
     try {
+      setLoading(true)
       const res = await fetch(`/api/orders/${o.id}/next-status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,6 +55,8 @@ export default function OrderCard({ o, onStatusUpdated }: Props) {
 
     } catch (err) {
       console.error("⚠️ 狀態更新錯誤：", err)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -124,21 +128,29 @@ export default function OrderCard({ o, onStatusUpdated }: Props) {
           </span>
         </div>
 
-  
+
         {/* ⭐ 狀態往後推按鈕 */}
         <button
           onClick={handleNextStatus}
-          disabled={STATUSES.indexOf(o.status) === STATUSES.length - 1}
-          className="w-full mt-2 py-1.5 text-sm rounded-lg 
-             bg-blue-100 text-blue-700 border border-blue-300 
-             hover:bg-blue-200 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          disabled={
+            loading || STATUSES.indexOf(o.status) === STATUSES.length - 1
+          }
+          className={`w-full mt-2 py-1.5 text-sm rounded-lg 
+    border transition
+    ${loading
+              ? "bg-blue-200 text-blue-400 border-blue-200 cursor-not-allowed opacity-70"
+              : "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200"
+            }`}
         >
-          ➡️ {(() => {
+          {loading ? (
+            "更新中…"
+          ) : (() => {
             const idx = STATUSES.indexOf(o.status)
             const next = STATUSES[idx + 1]
-            return next ? `${next}` : "已是最後狀態"
+            return next ? `➡️ ${next}` : "已是最後狀態"
           })()}
         </button>
+
 
 
         {/* 詳細資訊開關 */}
