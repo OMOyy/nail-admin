@@ -14,7 +14,7 @@ const r2 = new S3Client({
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_KEY!  // ← 新增
+  process.env.SUPABASE_SERVICE_ROLE_KEY!  // ← 新增
 )
 // ✅ 產生台灣時間戳（YYYYMMDD-HHMMSS）
 function taipeiStamp() {
