@@ -19,6 +19,11 @@ export default function EditOrderPage() {
   // 讀取訂單（只讀，不寫 DB）
   // ----------------------------------------------------
   useEffect(() => {
+    if (!id) {
+      console.error("❌ Missing order id")
+      alert("訂單 ID 錯誤，請重新進入頁面")
+      router.replace("/orders")
+    }
     const fetchOrder = async () => {
       const { data, error } = await supabase
         .from("orders")
