@@ -23,11 +23,11 @@ const r2 = new S3Client({
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  console.log("🔥 HIT /api/orders/[id]/edit", params.id);
 
-  const id = params.id;
+  const { id } = await params
+  console.log("🔥 HIT /api/orders/[id]/edit", id);
   const form = await req.formData();
 
   // ① 前端 JSON
@@ -38,7 +38,7 @@ export async function POST(
 
   // ③ 新圖片（File）
   const newFiles = form.getAll("newImages") as File[];
-  
+
   const supabase = getServerSupabase()
 
   // ④ 讀取資料庫原本圖片
