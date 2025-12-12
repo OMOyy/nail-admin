@@ -13,6 +13,7 @@ export default function EditOrderPage() {
   const [images, setImages] = useState<(string | File)[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [activeImage, setActiveImage] = useState<string | null>(null)
 
   // ----------------------------------------------------
@@ -81,7 +82,7 @@ export default function EditOrderPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form) return
-
+    setSaving(true)
     const fd = new FormData()
 
     // ✅ 白名單資料（一定要）
@@ -121,6 +122,7 @@ export default function EditOrderPage() {
     }
 
     alert("✅ 修改成功")
+    setSaving(false)
     router.push("/orders")
   }
 
@@ -338,7 +340,7 @@ export default function EditOrderPage() {
               type="submit"
               className="px-5 py-2.5 rounded-lg bg-brand-400 text-white hover:bg-brand-500 w-full sm:w-auto"
             >
-              儲存修改
+               {saving ? "儲存修改中..." : "儲存修改"}
             </button>
           </div>
         </div>
