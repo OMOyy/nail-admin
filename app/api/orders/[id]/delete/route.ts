@@ -17,9 +17,9 @@ const r2 = new S3Client({
 
 export async function POST(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const id = params.id;
+  const { id } = await params
   console.log("🔥 DELETE ORDER HIT, id =", id);
   const supabase = getServerSupabase()
 
