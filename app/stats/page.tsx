@@ -28,7 +28,8 @@ const fetchOrders = async () => {
 export default function StatsPage() {
   // ⭐ 預設使用本月份
   const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1) // 1–12 月
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
 
   const { data: orders, error, isLoading, mutate } = useSWR(
     "stats-orders",
@@ -39,9 +40,11 @@ export default function StatsPage() {
   /* -----------------------------------------
    * 📌 計算該月的起始時間
    * ----------------------------------------- */
-  const monthStart = new Date(now.getFullYear(), selectedMonth - 1, 1)
-  const monthEnd = new Date(now.getFullYear(), selectedMonth, 1)
-  const daysInMonth = new Date(now.getFullYear(), selectedMonth, 0).getDate()
+  const monthStart = new Date(selectedYear, selectedMonth - 1, 1)
+  const monthEnd = new Date(selectedYear, selectedMonth, 1)
+
+  const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate()
+
 
   /* -----------------------------------------
    * 📌 該月訂單
@@ -52,7 +55,8 @@ export default function StatsPage() {
       const t = new Date(o.created_at)
       return t >= monthStart && t < monthEnd
     })
-  }, [orders, selectedMonth])
+  }, [orders, selectedYear, selectedMonth])
+
 
   const revenueMonth = ordersThisMonth.reduce((sum, o) => sum + (o.price ?? 0), 0)
   const avgOrderMonth = ordersThisMonth.length
@@ -62,36 +66,45 @@ export default function StatsPage() {
   /* -----------------------------------------
    * 📌 該月折線資料（每日訂單數）
    * ----------------------------------------- */
-  const lineData = Array.from({ length: daysInMonth }).map((_, i) => {
-    const d = new Date(now.getFullYear(), selectedMonth - 1, i + 1)
-    const key = d.toISOString().slice(0, 10)
+  const lineData = useMemo(() => {
+    return Array.from({ length: daysInMonth }).map((_, i) => {
+      const d = new Date(selectedYear, selectedMonth - 1, i + 1)
+      const key = d.toISOString().slice(0, 10)
 
-    const dailyOrders = ordersThisMonth.filter(
-      o => o.created_at.slice(0, 10) === key
-    )
+      const dailyOrders = ordersThisMonth.filter(
+        o => o.created_at.slice(0, 10) === key
+      )
 
-    return { date: key.slice(5), count: dailyOrders.length }
-  })
+      return {
+        date: key.slice(5),
+        count: dailyOrders.length,
+      }
+    })
+  }, [ordersThisMonth, selectedYear, selectedMonth, daysInMonth])
+
 
   /* -----------------------------------------
    * 📌 本月營收折線圖（每日 / 累積）
    * ----------------------------------------- */
-  const lineRevenueData = Array.from({ length: daysInMonth }).map((_, i) => {
-    const d = new Date(now.getFullYear(), selectedMonth - 1, i + 1)
-    const key = d.toISOString().slice(0, 10)
+  const lineRevenueData = useMemo(() => {
+    return Array.from({ length: daysInMonth }).map((_, i) => {
+      const d = new Date(selectedYear, selectedMonth - 1, i + 1)
+      const key = d.toISOString().slice(0, 10)
 
-    const dailyRevenue = ordersThisMonth
-      .filter(o => o.created_at.slice(0, 10) === key)
-      .reduce((sum, o) => sum + (o.price ?? 0), 0)
+      const dailyRevenue = ordersThisMonth
+        .filter(o => o.created_at.slice(0, 10) === key)
+        .reduce((sum, o) => sum + (o.price ?? 0), 0)
 
-    return { date: key.slice(5), dailyRevenue }
-  })
-
-  let cumulative = 0
-  const lineCumulativeRevenue = lineRevenueData.map(d => {
-    cumulative += d.dailyRevenue
-    return { date: d.date, revenue: cumulative }
-  })
+      return { date: key.slice(5), dailyRevenue }
+    })
+  }, [ordersThisMonth, selectedYear, selectedMonth, daysInMonth])
+  const lineCumulativeRevenue = useMemo(() => {
+    let cumulative = 0
+    return lineRevenueData.map(d => {
+      cumulative += d.dailyRevenue
+      return { date: d.date, revenue: cumulative }
+    })
+  }, [lineRevenueData])
 
   /* -----------------------------------------
    * 📌 形狀 / 尺寸分布（該月）
@@ -133,6 +146,21 @@ export default function StatsPage() {
         <h1 className="text-2xl font-bold text-brand-900">銷售統計</h1>
 
         <div className="flex items-center gap-3">
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="px-3 py-1 border rounded-xl bg-white text-brand-800"
+          >
+            {Array.from({ length: 5 }).map((_, i) => {
+              const y = now.getFullYear() - i
+              return (
+                <option key={y} value={y}>
+                  {y} 年
+                </option>
+              )
+            })}
+          </select>
+
           {/* ⭐ 月份選擇下拉 */}
           <select
             className="px-3 py-1 border rounded-xl bg-white text-brand-800"
@@ -168,7 +196,7 @@ export default function StatsPage() {
       <div className="p-4 bg-white rounded-2xl border">
         <h2 className="font-semibold mb-3">💰 本月累積營收</h2>
         <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={lineCumulativeRevenue}>
+          <LineChart  key={`${selectedYear}-${selectedMonth}`} data={lineCumulativeRevenue}>
             <XAxis dataKey="date" />
             <YAxis />
             <Tooltip />
