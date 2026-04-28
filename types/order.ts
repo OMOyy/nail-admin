@@ -6,9 +6,9 @@ export type OrderStatus =
 export type Order = {
   id: string
   customer: string
-  size: "XS" | "S" | "M" | "L" | "客製"
+  size: "XS" | "S" | "M" | "L" | "客製" | "翻模"
   custom_size_note?: string
-  shape: "短圓" | "短方圓" | "短方" | "短梯" | "梯形" | "橢圓" | "杏仁"
+  shape: "短圓" | "短方圓" | "短方" | "短梯" | "梯形" | "橢圓" | "杏仁" | "模土"
   style_imgs: string[]
   quantity: number
   note?: string
